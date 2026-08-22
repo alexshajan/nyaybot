@@ -24,6 +24,16 @@ export function useNyayBot(getToken) {
     setHistory([]);
   }, []);
 
+  const loadHistory = useCallback((savedMessages = []) => {
+    setHistory(savedMessages);
+    setMessages(savedMessages.map((m, index) => ({
+      role: m.role === 'assistant' ? 'bot' : 'user',
+      content: m.content,
+      isHTML: m.role === 'assistant',
+      id: `${Date.now()}-${index}`,
+    })));
+  }, []);
+
   const sendMessage = useCallback(async (text, category, language) => {
     if (!text.trim() || loading) return;
 
@@ -82,6 +92,7 @@ export function useNyayBot(getToken) {
     hasConversation,
     addMessage,
     resetChat,
+    loadHistory,
     sendMessage,
     generateLetter,
     generateSummary,

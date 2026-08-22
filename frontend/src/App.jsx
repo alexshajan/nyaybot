@@ -27,7 +27,7 @@ export default function App() {
   const [historyOpen, setHistoryOpen] = useState(false);
 
   const { user, loading: authLoading, signInWithGoogle, signOut, getToken } = useAuth();
-  const { messages, history, loading, hasConversation, addMessage, resetChat, sendMessage, generateLetter, generateSummary } = useNyayBot(getToken);
+  const { messages, history, loading, hasConversation, addMessage, resetChat, loadHistory, sendMessage, generateLetter, generateSummary } = useNyayBot(getToken);
   const { cases, loadingCases, activeCaseId, setActiveCaseId, loadCases, loadCase, saveCase, updateCase, deleteCase } = useCases(getToken);
 
   const msgsRef = useRef(null);
@@ -92,12 +92,7 @@ export default function App() {
     setLang(caseData.language || 'en');
     setChipsVisible(false);
     setHistoryOpen(false);
-    resetChat();
-    // Replay messages into UI
-    caseData.messages.forEach(m => {
-      if (m.role === 'user') addMessage('user', m.content, false);
-      else addMessage('bot', m.content, true);
-    });
+    loadHistory(caseData.messages || []);
   };
 
   const handleNewCase = () => {
@@ -229,7 +224,7 @@ export default function App() {
                 <div
                   className="bubble"
                   {...(msg.isHTML
-                    ? { dangerouslySetInnerHTML: { __html: msg.content } }
+                    ? { dangerouslySetInnerHTML: { __html: sanitizeBotHtml(msg.content) } }
                     : { children: msg.content }
                   )}
                 />
@@ -354,4 +349,29 @@ function CopyButton({ text, label, copiedLabel }) {
       {copied ? copiedLabel : label}
     </button>
   );
+}
+
+function sanitizeBotHtml(html) {
+  const template = document.createElement('template');
+  template.innerHTML = String(html || '');
+
+  const allowedTags = new Set(['B', 'BR', 'SPAN']);
+  const allowedSpanClasses = new Set(['sl', 'sl-s', 'sl-r', 'sl-o', 'sl-n']);
+
+  template.content.querySelectorAll('*').forEach(node => {
+    if (!allowedTags.has(node.tagName)) {
+      node.replaceWith(document.createTextNode(node.textContent || ''));
+      return;
+    }
+
+    if (node.tagName === 'SPAN') {
+      const classes = [...node.classList].filter(cls => allowedSpanClasses.has(cls));
+      [...node.attributes].forEach(attr => node.removeAttribute(attr.name));
+      if (classes.length) node.className = classes.join(' ');
+    } else {
+      [...node.attributes].forEach(attr => node.removeAttribute(attr.name));
+    }
+  });
+
+  return template.innerHTML;
 }
